@@ -6,6 +6,7 @@ from datetime import datetime
 import time
 
 b = Bittrex('API_KEY', 'API_SECRET')
+b = Bittrex('cf4c0e2cc0434fd8afb54c414a1e1e64', '18c6881726674cd588e7291d4f470d7f')
 
 def run():
 
@@ -13,9 +14,14 @@ def run():
 
     from dateutil.parser import parse
 
-    balances = b.get_balances()['result']
-    balances = filter(lambda x: x['Balance'] > 0, balances)
-    currencies = filter(lambda x: x != 'BTC' and x != 'RBY', map(lambda x: x['Currency'], balances))
+    currencies = []
+
+    open_orders = b.api_query('getopenorders')['result']
+    for order in open_orders:
+        cur = order['Exchange'].replace('BTC-', '')
+        currencies.append(cur)
+    currencies = list(set(currencies))
+
     f, plots = pyplot.subplots(len(currencies))
     pyplot.ion()
 
@@ -39,6 +45,7 @@ def run():
 
     while True:
         try:
+            currencies = []
 
             if updates == 0:
                 open_orders = b.api_query('getopenorders')['result']
@@ -54,9 +61,13 @@ def run():
                     if cur not in buy_data.keys():
                         buy_data[cur] = []
                     if order['OrderType'] == 'LIMIT_SELL':
+                        if order['Limit'] > 0.01 and cur == 'RBY':
+                            continue
                         sell_data[cur].append(order['Limit'])
                     if order['OrderType'] == 'LIMIT_BUY':
                         buy_data[cur].append(order['Limit'])
+                    currencies.append(cur)
+                    currencies = list(set(currencies))
 
             summaries = b.get_market_summaries()['result']
             for market in summaries:
